@@ -34,6 +34,10 @@ app.use(logger);
 // ─── API Routes ───────────────────────────────────────────
 app.use("/api/v4/user", userAuthRouter);
 app.use("/api/v4/feedback", feedbackRouter);
+app.use(cors({
+  origin: "http://localhost:5173",
+  credentials: true
+}));
 // ─── Error Handler (must be last!) ───────────────────────
 app.use(errorHandler);
 // ─── Connect Database ─────────────────────────────────────
