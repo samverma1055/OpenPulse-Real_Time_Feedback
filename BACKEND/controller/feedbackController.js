@@ -13,15 +13,6 @@ export const submitFeedback = async (req, res) => {
       submittedBy: isAnonymous ? null : req.user?.id,
     });
 
-    // 🔴 Real-time: broadcast new feedback to ALL connected clients
-    const io = req.app.get("io");
-    if (io) {
-      io.emit("newFeedback", {
-        event: "newFeedback",
-        feedback,
-      });
-    }
-
     res.status(201).json({
       success: true,
       message: "Feedback submitted successfully!",
@@ -66,10 +57,8 @@ export const getAllFeedback = async (req, res) => {
 // ─── GET SINGLE FEEDBACK ──────────────────────────────────
 export const getSingleFeedback = async (req, res) => {
   try {
-    const feedback = await Feedback.findById(req.params.id).populate(
-      "submittedBy",
-      "username email"
-    );
+    const feedback = await Feedback.findById(req.params.id)
+      .populate("submittedBy", "username email");
 
     if (!feedback) {
       return res.status(404).json({
@@ -100,16 +89,6 @@ export const updateFeedbackStatus = async (req, res) => {
       });
     }
 
-    // 🔴 Real-time: notify all clients that status changed
-    const io = req.app.get("io");
-    if (io) {
-      io.emit("feedbackStatusUpdated", {
-        event: "feedbackStatusUpdated",
-        feedbackId: feedback._id,
-        newStatus: feedback.status,
-      });
-    }
-
     res.status(200).json({
       success: true,
       message: "Status updated!",
@@ -136,16 +115,6 @@ export const upvoteFeedback = async (req, res) => {
       });
     }
 
-    // 🔴 Real-time: broadcast updated upvote count
-    const io = req.app.get("io");
-    if (io) {
-      io.emit("feedbackUpvoted", {
-        event: "feedbackUpvoted",
-        feedbackId: feedback._id,
-        upvotes: feedback.upvotes,
-      });
-    }
-
     res.status(200).json({
       success: true,
       message: "Upvoted!",
@@ -165,15 +134,6 @@ export const deleteFeedback = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Feedback not found",
-      });
-    }
-
-    // 🔴 Real-time: notify all clients a feedback was removed
-    const io = req.app.get("io");
-    if (io) {
-      io.emit("feedbackDeleted", {
-        event: "feedbackDeleted",
-        feedbackId: req.params.id,
       });
     }
 
