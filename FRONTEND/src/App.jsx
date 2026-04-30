@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from "react";
+import { io } from "socket.io-client";
 
 const API = "http://localhost:4000/api/v4";
+const socket = io("http://localhost:4000", { withCredentials: true });
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Instrument+Serif:ital@0;1&family=Geist:wght@300;400;500;600&display=swap');
@@ -441,6 +443,20 @@ const styles = `
   .upvote-num { font-weight: 600; font-variant-numeric: tabular-nums; }
   .fb-time { color: var(--ink3); font-size: 0.72rem; letter-spacing: 0.02em; }
 
+  /* ── Live Alert ── */
+  .live-alert {
+    background: var(--violet-dim); border: 1px solid rgba(139,92,246,0.25);
+    color: var(--violet); padding: 0.65rem 1.2rem;
+    border-radius: var(--radius-sm); margin-bottom: 1.2rem;
+    font-size: 0.84rem; text-align: center;
+    animation: fadeUp 0.3s ease both;
+  }
+  .live-dot {
+    display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--emerald); margin-left: 0.5rem;
+    box-shadow: 0 0 6px var(--emerald); vertical-align: middle;
+  }
+
   /* ── Submit ── */
   .form-wrap { max-width: 560px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
   .form-eyebrow { font-size: 0.7rem; color: var(--ink3); letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.5rem; }
@@ -501,10 +517,39 @@ const styles = `
   .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .err { color: #f87171; font-size: 0.78rem; margin-top: 0.35rem; display: flex; align-items: center; gap: 0.3rem; }
 
-  /* Success */
+  /* Sentiment preview badge */
+  .sentiment-preview {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    font-size: 0.75rem; font-weight: 500;
+  }
+
+  /* Profanity warning */
+  .profanity-warning {
+    background: rgba(245,158,11,0.07);
+    border: 1px solid rgba(245,158,11,0.18);
+    border-radius: var(--radius-sm);
+    padding: 0.6rem 0.9rem;
+    font-size: 0.78rem; color: var(--amber);
+    margin-bottom: 1.3rem;
+  }
+
+  /* Sentiment analysis result card */
+  .analysis-card {
+    background: var(--bg2); border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm); padding: 1.2rem 1.4rem; margin-bottom: 1.5rem;
+  }
+  .analysis-label {
+    font-size: 0.68rem; color: var(--ink3); letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 0.9rem;
+  }
+  .analysis-metrics { display: flex; gap: 2rem; flex-wrap: wrap; }
+  .analysis-metric-label { font-size: 0.72rem; color: var(--ink3); margin-bottom: 0.25rem; }
+  .analysis-metric-value { font-size: 1.05rem; font-weight: 600; }
+
+  /* Success state */
   .success-page {
     display: flex; flex-direction: column; align-items: center;
-    justify-content: center; min-height: 70vh; text-align: center; padding: 2rem;
+    justify-content: center; min-height: 60vh; text-align: center; padding: 2rem;
     animation: fadeUp 0.5s ease;
   }
   .success-icon {
@@ -637,6 +682,8 @@ const styles = `
     .section-title { font-size: 2rem; }
     .footer-grid { grid-template-columns: 1fr; }
     .cta-banner { padding: 2.5rem 1.5rem; }
+    .filter-bar { border-radius: var(--radius); }
+    .analysis-metrics { gap: 1.2rem; }
   }
 `;
 
@@ -909,82 +956,7 @@ function Home({ setPage, stats }) {
   );
 }
 
-// ─── Board ────────────────────────────────────────────────────────────────────
-function Board({ toast }) {
-  const [feedbacks, setFeedbacks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("all");
-  const [sentiment, setSentiment] = useState("all");
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      let url = `${API}/feedback/all?`;
-      if (filter !== "all") url += `category=${filter}&`;
-      if (sentiment !== "all") url += `sentiment=${sentiment}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      setFeedbacks(data.feedbacks || []);
-    } catch { toast("Failed to load feedback", "error"); }
-    setLoading(false);
-  };
-
-  useEffect(() => { load(); }, [filter, sentiment]);
-
-  const upvote = async (id) => {
-    try {
-      const res = await fetch(`${API}/feedback/upvote/${id}`, { method: "PUT" });
-      const data = await res.json();
-      if (data.success) {
-        setFeedbacks(f => f.map(fb => fb._id === id ? { ...fb, upvotes: data.upvotes } : fb));
-        toast("Upvoted!", "success");
-      }
-    } catch { toast("Failed to upvote", "error"); }
-  };
-
-  return (
-    <div className="page">
-      <div className="container" style={{ paddingBottom: "5rem" }}>
-        <div className="board-header-row">
-          <div>
-            <div className="section-label">Community</div>
-            <div className="section-title">Public Board</div>
-          </div>
-          <span className="count-pill">{feedbacks.length} entries</span>
-        </div>
-        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "1.5rem" }}>
-          <div className="filter-bar">
-            {["all","general","bug","suggestion","complaint"].map(c => (
-              <button key={c} className={`filter-chip ${filter === c ? "active" : ""}`} onClick={() => setFilter(c)}>
-                {c.charAt(0).toUpperCase() + c.slice(1)}
-              </button>
-            ))}
-          </div>
-          <div className="filter-bar">
-            {["all","positive","neutral","negative"].map(s => (
-              <button key={s} className={`filter-chip ${sentiment === s ? "active" : ""}`} onClick={() => setSentiment(s)}>
-                {s.charAt(0).toUpperCase() + s.slice(1)}
-              </button>
-            ))}
-          </div>
-        </div>
-        {loading ? (
-          <div className="loading-wrap"><div className="spinner" /></div>
-        ) : feedbacks.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">◎</div>
-            <div className="empty-state-text">No feedback found. Be the first to submit.</div>
-          </div>
-        ) : (
-          <div className="feedback-list">
-            {feedbacks.map((fb, i) => <FeedbackCard key={fb._id} fb={fb} onUpvote={upvote} delay={i * 0.04} />)}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
+// ─── FeedbackCard ─────────────────────────────────────────────────────────────
 function FeedbackCard({ fb, onUpvote, delay }) {
   const cardRef = useRef();
   const handleMouseMove = (e) => {
@@ -1011,28 +983,196 @@ function FeedbackCard({ fb, onUpvote, delay }) {
   );
 }
 
+// ─── Board ────────────────────────────────────────────────────────────────────
+function Board({ toast }) {
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("all");
+  const [sentiment, setSentiment] = useState("all");
+  const [liveAlert, setLiveAlert] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filter !== "all") params.append("category", filter);
+      if (sentiment !== "all") params.append("sentiment", sentiment);
+      const query = params.toString();
+      const url = `${API}/feedback/all${query ? `?${query}` : ""}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      setFeedbacks(data.feedbacks || []);
+    } catch { toast("Failed to load feedback", "error"); }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [filter, sentiment]);
+
+  // ⚡ Socket.io real-time listeners
+  useEffect(() => {
+    socket.emit("join_feedback");
+
+    socket.on("new_feedback", (fb) => {
+      setFeedbacks(prev => [fb, ...prev]);
+      setLiveAlert("⚡ New feedback just arrived!");
+      setTimeout(() => setLiveAlert(""), 3000);
+    });
+
+    socket.on("status_updated", ({ _id, status }) => {
+      setFeedbacks(prev =>
+        prev.map(fb => fb._id === _id ? { ...fb, status } : fb)
+      );
+    });
+
+    socket.on("upvote_updated", ({ _id, upvotes }) => {
+      setFeedbacks(prev =>
+        prev.map(fb => fb._id === _id ? { ...fb, upvotes } : fb)
+      );
+    });
+
+    socket.on("feedback_deleted", ({ _id }) => {
+      setFeedbacks(prev => prev.filter(fb => fb._id !== _id));
+    });
+
+    return () => {
+      socket.off("new_feedback");
+      socket.off("status_updated");
+      socket.off("upvote_updated");
+      socket.off("feedback_deleted");
+    };
+  }, []);
+
+  const upvote = async (id) => {
+    try {
+      const res = await fetch(`${API}/feedback/upvote/${id}`, { method: "PUT" });
+      const data = await res.json();
+      if (!data.success) toast("Failed to upvote", "error");
+    } catch { toast("Failed to upvote", "error"); }
+  };
+
+  const categories = ["all", "general", "bug", "suggestion", "complaint"];
+  const sentiments = ["all", "positive", "neutral", "negative"];
+
+  return (
+    <div className="page">
+      <div className="container" style={{ paddingBottom: "5rem" }}>
+
+        {/* Page Header */}
+        <div className="board-header-row">
+          <div>
+            <div className="section-label">Live · Real-Time</div>
+            <div className="section-title">
+              Public Board
+              <span className="live-dot" title="Live" />
+            </div>
+          </div>
+          <span className="count-pill">{feedbacks.length} submissions</span>
+        </div>
+
+        {/* Live Alert */}
+        {liveAlert && (
+          <div className="live-alert">{liveAlert}</div>
+        )}
+
+        {/* Category Filters */}
+        <div className="filter-bar">
+          {categories.map(c => (
+            <button
+              key={c}
+              className={`filter-chip ${filter === c ? "active" : ""}`}
+              onClick={() => setFilter(c)}
+            >
+              {c.charAt(0).toUpperCase() + c.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* Sentiment Filters */}
+        <div className="filter-bar" style={{ marginBottom: "2rem" }}>
+          {sentiments.map(s => (
+            <button
+              key={s}
+              className={`filter-chip ${sentiment === s ? "active" : ""}`}
+              onClick={() => setSentiment(s)}
+            >
+              {s.charAt(0).toUpperCase() + s.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* Feedback List */}
+        {loading ? (
+          <div className="loading-wrap"><div className="spinner" /></div>
+        ) : feedbacks.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">📭</div>
+            <div className="empty-state-text">No feedback found. Be the first to submit!</div>
+          </div>
+        ) : (
+          <div className="feedback-list">
+            {feedbacks.map((fb, i) => (
+              <FeedbackCard key={fb._id} fb={fb} onUpvote={upvote} delay={i * 0.04} />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Submit ───────────────────────────────────────────────────────────────────
 function Submit({ toast, user }) {
-  const [form, setForm] = useState({ content: "", category: "general", sentiment: "neutral", isAnonymous: true });
+  const [form, setForm] = useState({
+    content: "", category: "general", isAnonymous: true
+  });
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [err, setErr] = useState("");
+  const [analysis, setAnalysis] = useState(null);
+
+  const previewSentiment = (text) => {
+    const positive = ["good","great","excellent","amazing","awesome","love",
+      "perfect","wonderful","best","happy","thank","helpful","easy","smooth","fast"];
+    const negative = ["bad","terrible","awful","horrible","worst","hate","broken",
+      "slow","useless","difficult","frustrating","annoying","poor","disappointing","error"];
+    const words = text.toLowerCase().split(/\s+/);
+    let score = 0;
+    words.forEach(w => {
+      if (positive.includes(w)) score++;
+      if (negative.includes(w)) score--;
+    });
+    if (score > 0) return "positive";
+    if (score < 0) return "negative";
+    return "neutral";
+  };
+
+  const sentimentEmoji = { positive: "😊", neutral: "😐", negative: "😞" };
+  const sentimentColorMap = { positive: "var(--emerald)", neutral: "var(--ink3)", negative: "#f87171" };
+  const liveSentiment = form.content.length > 3 ? previewSentiment(form.content) : null;
 
   const submit = async () => {
-    setErr("");
-    if (form.content.trim().length < 5) { setErr("Feedback must be at least 5 characters."); return; }
+    if (form.content.trim().length < 5) {
+      toast("Feedback too short (min 5 chars)", "error"); return;
+    }
     setLoading(true);
     try {
       const token = localStorage.getItem("op_token");
       const res = await fetch(`${API}/feedback/submit`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(form),
       });
       const data = await res.json();
-      if (data.success) { setSubmitted(true); toast("Feedback submitted!", "success"); }
-      else setErr(data.message || "Something went wrong.");
-    } catch { setErr("Server error. Is your backend running?"); }
+      if (data.success) {
+        setAnalysis(data.sentimentAnalysis);
+        setSubmitted(true);
+        toast("Feedback submitted!", "success");
+      } else {
+        toast(data.message, "error");
+      }
+    } catch { toast("Server error", "error"); }
     setLoading(false);
   };
 
@@ -1040,9 +1180,45 @@ function Submit({ toast, user }) {
     <div className="page">
       <div className="success-page">
         <div className="success-icon">✦</div>
-        <div className="success-title">Voice Heard</div>
-        <p className="success-sub">Your feedback has been received. {form.isAnonymous && "Your identity remains protected."}</p>
-        <button className="cta-primary" onClick={() => { setSubmitted(false); setForm({ content: "", category: "general", sentiment: "neutral", isAnonymous: true }); }}>Submit Another</button>
+        <div className="success-title">Feedback Received!</div>
+        <p className="success-sub">
+          {form.isAnonymous ? "Your identity is protected." : "Thank you for your feedback!"}
+        </p>
+
+        {analysis && (
+          <div className="analysis-card" style={{ width: "100%", maxWidth: "400px", textAlign: "left" }}>
+            <div className="analysis-label">🤖 Auto Sentiment Analysis</div>
+            <div className="analysis-metrics">
+              <div>
+                <div className="analysis-metric-label">Detected</div>
+                <div className="analysis-metric-value" style={{ color: sentimentColorMap[analysis.sentiment] }}>
+                  {sentimentEmoji[analysis.sentiment]} {analysis.sentiment}
+                </div>
+              </div>
+              <div>
+                <div className="analysis-metric-label">Score</div>
+                <div className="analysis-metric-value" style={{ color: "var(--violet)" }}>
+                  {analysis.score > 0 ? "+" : ""}{analysis.score}
+                </div>
+              </div>
+              <div>
+                <div className="analysis-metric-label">Confidence</div>
+                <div className="analysis-metric-value" style={{ color: "var(--rose)" }}>
+                  {analysis.confidence}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <button className="submit-btn" style={{ maxWidth: "400px", marginTop: "0" }}
+          onClick={() => {
+            setSubmitted(false);
+            setAnalysis(null);
+            setForm({ content: "", category: "general", isAnonymous: true });
+          }}>
+          Submit Another →
+        </button>
       </div>
     </div>
   );
@@ -1050,41 +1226,74 @@ function Submit({ toast, user }) {
   return (
     <div className="page">
       <div className="form-wrap">
-        <div className="form-eyebrow">New Entry</div>
-        <h2 className="form-heading">Share Feedback</h2>
-        <p className="form-desc">Honest and anonymous by default. Your thoughts, unfiltered.</p>
+        <div className="form-eyebrow">Share Your Voice</div>
+        <div className="form-heading">Submit Feedback</div>
+        <p className="form-desc">
+          Anonymous by default. Sentiment auto-detected by AI — be honest, be specific.
+        </p>
+
+        {/* Content Field */}
         <div className="field">
-          <div className="field-label">Your Feedback <span>{form.content.length}/500</span></div>
-          <textarea placeholder="What's on your mind? Be specific, be honest..." value={form.content}
-            onChange={e => setForm({ ...form, content: e.target.value })} maxLength={500} />
-          {err && <div className="err">✕ {err}</div>}
-        </div>
-        <div className="grid-2">
-          <div className="field">
-            <div className="field-label">Category</div>
-            <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })}>
-              <option value="general">General</option><option value="bug">Bug</option>
-              <option value="suggestion">Suggestion</option><option value="complaint">Complaint</option>
-            </select>
+          <div className="field-label">
+            Your Feedback
+            <span>{form.content.length}/500</span>
           </div>
-          <div className="field">
-            <div className="field-label">Sentiment</div>
-            <select value={form.sentiment} onChange={e => setForm({ ...form, sentiment: e.target.value })}>
-              <option value="positive">Positive</option><option value="neutral">Neutral</option><option value="negative">Negative</option>
-            </select>
-          </div>
+          <textarea
+            placeholder="What's on your mind? Be honest, be specific..."
+            value={form.content}
+            onChange={e => setForm({ ...form, content: e.target.value })}
+            maxLength={500}
+          />
+          {liveSentiment && (
+            <div style={{ marginTop: "0.45rem", display: "flex", justifyContent: "flex-end" }}>
+              <span className="sentiment-preview" style={{ color: "var(--ink3)" }}>
+                Live sentiment:&nbsp;
+                <span style={{ color: sentimentColorMap[liveSentiment], fontWeight: 600 }}>
+                  {sentimentEmoji[liveSentiment]} {liveSentiment}
+                </span>
+              </span>
+            </div>
+          )}
         </div>
+
+        {/* Profanity Warning */}
+        <div className="profanity-warning">
+          ⚠️ Profanity filter is active — keep feedback respectful
+        </div>
+
+        {/* Category Field */}
+        <div className="field">
+          <div className="field-label">Category</div>
+          <select
+            value={form.category}
+            onChange={e => setForm({ ...form, category: e.target.value })}
+          >
+            <option value="general">General</option>
+            <option value="bug">Bug</option>
+            <option value="suggestion">Suggestion</option>
+            <option value="complaint">Complaint</option>
+          </select>
+        </div>
+
+        {/* Anonymous Toggle */}
         <div className="field">
           <div className="toggle-row">
             <div className="toggle-info">
               <h4>Submit Anonymously</h4>
               <p>Your identity will not be recorded</p>
             </div>
-            <div className={`toggle ${form.isAnonymous ? "on" : ""}`} onClick={() => setForm({ ...form, isAnonymous: !form.isAnonymous })} />
+            <div
+              className={`toggle ${form.isAnonymous ? "on" : ""}`}
+              onClick={() => setForm({ ...form, isAnonymous: !form.isAnonymous })}
+            />
           </div>
         </div>
+
+        {/* Submit Button */}
         <button className="submit-btn" onClick={submit} disabled={loading}>
-          {loading ? <><span className="spinner" /> Submitting…</> : <>✦ Submit Feedback</>}
+          {loading
+            ? <><span className="spinner" /> Analyzing & Submitting…</>
+            : <>✦ Submit Feedback</>}
         </button>
       </div>
     </div>

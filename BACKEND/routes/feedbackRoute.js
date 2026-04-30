@@ -8,16 +8,15 @@ import {
   deleteFeedback,
 } from "../controller/feedbackController.js";
 import { isAuthenticated, isAdmin } from "../middlewares/auth.js";
+import { profanityFilter } from "../middlewares/profanityFilter.js";
 
 const router = express.Router();
 
-// Public routes
-router.post("/submit", submitFeedback);
+// profanityFilter runs BEFORE submitFeedback
+router.post("/submit", profanityFilter, submitFeedback);
 router.get("/all", getAllFeedback);
 router.get("/:id", getSingleFeedback);
 router.put("/upvote/:id", upvoteFeedback);
-
-// Admin only routes
 router.put("/status/:id", isAuthenticated, isAdmin, updateFeedbackStatus);
 router.delete("/:id", isAuthenticated, isAdmin, deleteFeedback);
 

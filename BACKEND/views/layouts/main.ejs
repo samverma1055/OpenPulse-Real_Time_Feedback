@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OpenPulse</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#0a0a0f;--surface:#12121a;--surface2:#1a1a26;
+      --border:#ffffff12;--accent:#7c6aff;--accent2:#ff6a9b;
+      --accent3:#6affda;--text:#f0eeff;--muted:#8885aa;
+      --success:#4ade80;--error:#ff4d6d;--warning:#fbbf24;
+    }
+    body{background:var(--bg);color:var(--text);font-family:'Segoe UI',sans-serif;min-height:100vh}
+    nav{position:sticky;top:0;z-index:100;display:flex;align-items:center;
+      justify-content:space-between;padding:1rem 2rem;
+      background:rgba(10,10,15,0.95);border-bottom:1px solid var(--border);backdrop-filter:blur(20px)}
+    .logo{font-size:1.4rem;font-weight:800;background:linear-gradient(135deg,var(--accent),var(--accent2));
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;text-decoration:none}
+    .nav-links{display:flex;gap:0.5rem;align-items:center}
+    .nav-btn{background:none;border:1px solid var(--border);color:var(--muted);
+      padding:0.4rem 1rem;border-radius:100px;cursor:pointer;font-size:0.85rem;
+      text-decoration:none;transition:all 0.2s;display:inline-block}
+    .nav-btn:hover,.nav-btn.active{border-color:var(--accent);color:var(--text)}
+    .nav-btn.primary{background:var(--accent);border-color:var(--accent);color:white}
+    .container{max-width:1100px;margin:0 auto;padding:2rem 1.5rem}
+    .btn{padding:0.65rem 1.5rem;border-radius:100px;border:none;cursor:pointer;
+      font-size:0.9rem;font-weight:500;transition:all 0.2s;display:inline-block;text-decoration:none}
+    .btn-primary{background:linear-gradient(135deg,var(--accent),#9b8aff);color:white}
+    .btn-primary:hover{transform:translateY(-1px);box-shadow:0 0 20px rgba(124,106,255,0.4)}
+    .btn-danger{background:var(--error);color:white}
+    .btn-sm{padding:0.35rem 0.8rem;font-size:0.8rem}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.5rem}
+    .badge{padding:0.2rem 0.6rem;border-radius:100px;font-size:0.72rem;font-weight:500}
+    .badge-general{background:rgba(106,255,218,0.1);color:var(--accent3)}
+    .badge-bug{background:rgba(255,77,109,0.1);color:var(--error)}
+    .badge-suggestion{background:rgba(251,191,36,0.1);color:var(--warning)}
+    .badge-complaint{background:rgba(255,106,155,0.1);color:var(--accent2)}
+    .badge-positive{background:rgba(74,222,128,0.1);color:var(--success)}
+    .badge-neutral{background:rgba(136,133,170,0.15);color:var(--muted)}
+    .badge-negative{background:rgba(255,77,109,0.1);color:var(--error)}
+    .badge-pending{background:rgba(251,191,36,0.1);color:var(--warning)}
+    .badge-reviewed{background:rgba(106,255,218,0.1);color:var(--accent3)}
+    .badge-resolved{background:rgba(74,222,128,0.1);color:var(--success)}
+    .badge-anon{background:rgba(124,106,255,0.15);color:var(--accent)}
+    input,textarea,select{width:100%;background:var(--surface);border:1px solid var(--border);
+      border-radius:10px;padding:0.7rem 1rem;color:var(--text);font-size:0.9rem;outline:none;
+      transition:border-color 0.2s;font-family:inherit}
+    input:focus,textarea:focus,select:focus{border-color:var(--accent)}
+    label{display:block;font-size:0.82rem;color:var(--muted);margin-bottom:0.4rem;font-weight:500}
+    .form-group{margin-bottom:1.1rem}
+    .error-box{background:rgba(255,77,109,0.1);border:1px solid var(--error);
+      color:var(--error);padding:0.7rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:0.88rem}
+    footer{text-align:center;padding:2rem;color:var(--muted);font-size:0.82rem;
+      border-top:1px solid var(--border);margin-top:4rem}
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/" class="logo">OpenPulse</a>
+    <div class="nav-links">
+      <a href="/feedback" class="nav-btn <%= page==='feedback'?'active':'' %>">Board</a>
+      <% if(user) { %>
+        <% if(user.role === 'admin') { %>
+          <a href="/dashboard" class="nav-btn <%= page==='dashboard'?'active':'' %>">Dashboard</a>
+        <% } %>
+        <span style="color:var(--muted);font-size:0.85rem">@<%=user.username%></span>
+        <a href="/logout" class="nav-btn">Logout</a>
+      <% } else { %>
+        <a href="/login" class="nav-btn <%= page==='login'?'active':'' %>">Login</a>
+        <a href="/register" class="nav-btn primary">Register</a>
+      <% } %>
+    </div>
+  </nav>
+  <%- body %>
+  <footer>OpenPulse &copy; 2026 — Anonymous Feedback System</footer>
+</body>
+</html>

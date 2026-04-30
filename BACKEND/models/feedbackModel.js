@@ -20,16 +20,22 @@ const feedbackSchema = new mongoose.Schema({
   },
   isAnonymous: {
     type: Boolean,
-    default: true, // Core feature of OpenPulse!
+    default: true,
   },
   submittedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    default: null, // null = truly anonymous
+    default: null,
   },
   upvotes: {
     type: Number,
     default: 0,
+  },
+  // ─── NEW: track who upvoted ───────────────────────────
+  voters: {
+    type: [String], // stores IP addresses
+    default: [],
+    select: false,  // never expose voter IPs
   },
   status: {
     type: String,
